@@ -1,6 +1,6 @@
 # rtmp-to-webrtc
 
-This repo demonstrates how to take a single RTMP publish and re-stream as WebRTC.
+This repo demonstrates a RTMP server that on every RTMP publish makes the audio/video available via WebRTC playback.
 
 ## How to use
 
