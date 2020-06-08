@@ -1,0 +1,40 @@
+<html>
+  <head>
+    <title> RTMP to WebRTC </title>
+  </head>
+
+  <body>
+    <h1> RTMP to WebRTC </h1>
+    <div id="rtmpFeed"></div>
+  </body>
+
+  <script>
+    let pc = new RTCPeerConnection()
+    pc.ontrack = function (event) {
+      var el = document.createElement(event.track.kind)
+      el.srcObject = event.streams[0]
+      el.autoplay = true
+      el.controls = true
+
+      document.getElementById('rtmpFeed').appendChild(el)
+    }
+
+    pc.addTransceiver('video')
+    pc.addTransceiver('audio')
+    pc.createOffer()
+      .then(offer => {
+        pc.setLocalDescription(offer)
+        return fetch(`/createPeerConnection`, {
+          method: 'post',
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(offer)
+        })
+      })
+      .then(res => res.json())
+      .then(res => pc.setRemoteDescription(res))
+      .catch(alert)
+  </script>
+</html>
