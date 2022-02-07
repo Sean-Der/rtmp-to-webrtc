@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pion/webrtc/v2"
+	"github.com/pion/webrtc/v3"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func createPeerConnection(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	videoTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeH264, rand.Uint32(), "video", "pion")
+	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264}, "video", "pion")
 	if err != nil {
 		panic(err)
 	}
@@ -35,7 +35,7 @@ func createPeerConnection(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	audioTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypePCMA, rand.Uint32(), "audio", "pion")
+	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypePCMA}, "audio", "pion")
 	if err != nil {
 		panic(err)
 	}
@@ -52,14 +52,16 @@ func createPeerConnection(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
+	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
 	answer, err := peerConnection.CreateAnswer(nil)
 	if err != nil {
 		panic(err)
 	} else if err = peerConnection.SetLocalDescription(answer); err != nil {
 		panic(err)
 	}
+	<-gatherComplete
 
-	response, err := json.Marshal(answer)
+	response, err := json.Marshal(peerConnection.LocalDescription())
 	if err != nil {
 		panic(err)
 	}

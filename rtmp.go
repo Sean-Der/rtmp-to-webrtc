@@ -8,15 +8,15 @@ import (
 	"net"
 	"time"
 
-	"github.com/pion/webrtc/v2"
-	"github.com/pion/webrtc/v2/pkg/media"
+	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v3/pkg/media"
 	"github.com/pkg/errors"
 	flvtag "github.com/yutopp/go-flv/tag"
 	"github.com/yutopp/go-rtmp"
 	rtmpmsg "github.com/yutopp/go-rtmp/message"
 )
 
-func startRTMPServer(peerConnection *webrtc.PeerConnection, videoTrack, audioTrack *webrtc.Track) {
+func startRTMPServer(peerConnection *webrtc.PeerConnection, videoTrack, audioTrack *webrtc.TrackLocalStaticSample) {
 	log.Println("Starting RTMP Server")
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", ":1935")
@@ -52,7 +52,7 @@ func startRTMPServer(peerConnection *webrtc.PeerConnection, videoTrack, audioTra
 type Handler struct {
 	rtmp.DefaultHandler
 	peerConnection         *webrtc.PeerConnection
-	videoTrack, audioTrack *webrtc.Track
+	videoTrack, audioTrack *webrtc.TrackLocalStaticSample
 }
 
 func (h *Handler) OnServe(conn *rtmp.Conn) {
@@ -89,8 +89,8 @@ func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 	}
 
 	return h.audioTrack.WriteSample(media.Sample{
-		Data:    data.Bytes(),
-		Samples: media.NSamples(20*time.Millisecond, 48000),
+		Data:     data.Bytes(),
+		Duration: 128 * time.Millisecond,
 	})
 }
 
@@ -123,8 +123,8 @@ func (h *Handler) OnVideo(timestamp uint32, payload io.Reader) error {
 	}
 
 	return h.videoTrack.WriteSample(media.Sample{
-		Data:    outBuf,
-		Samples: media.NSamples(time.Second/30, 90000),
+		Data:     outBuf,
+		Duration: time.Second / 30,
 	})
 }
 
