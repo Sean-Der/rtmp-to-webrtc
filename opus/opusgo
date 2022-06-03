@@ -1,0 +1,185 @@
+package opus
+
+import (
+	"errors"
+	"fmt"
+)
+
+/*
+#include <opus.h>
+int CAPTURE_CHANNELS   = 2;
+int CAPTURE_RATE    =    48000;
+int CAPTURE_LATENCY   =  40000;
+int PLAYBACK_CHANNELS =  2;
+int PLAYBACK_RATE   =    48000;
+int PLAYBACK_LATENCY =   40000;
+int OPUS_BITRATE     =   32000;
+int OPUS_VBR         =   1;
+int OPUS_BANDWIDTH   =   2;
+int BANDWIDTH =1;
+int VBR=1;
+int bridge_encoder_set_bitrate(OpusEncoder *e, opus_int32 bitrate)
+{
+	opus_encoder_ctl(e, OPUS_SET_SIGNAL(OPUS_AUTO));
+  	opus_encoder_ctl(e, OPUS_SET_BANDWIDTH(BANDWIDTH));
+	opus_encoder_ctl(e, OPUS_SET_VBR(VBR));
+
+    opus_encoder_ctl(e, OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE));
+
+    opus_encoder_ctl(e, OPUS_SET_BITRATE(OPUS_AUTO));
+    opus_encoder_ctl(e, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND));
+
+    opus_encoder_ctl(e, OPUS_SET_VBR(1));
+
+    opus_encoder_ctl(e, OPUS_SET_VBR_CONSTRAINT(0));
+
+    opus_encoder_ctl(e, OPUS_SET_COMPLEXITY(5));
+
+    opus_encoder_ctl(e, OPUS_SET_FORCE_CHANNELS(CAPTURE_CHANNELS));
+
+    opus_encoder_ctl(e, OPUS_SET_APPLICATION(OPUS_APPLICATION_VOIP));
+
+    opus_encoder_ctl(e, OPUS_SET_INBAND_FEC(1));
+    opus_encoder_ctl(e, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_20_MS));
+	return opus_encoder_ctl(e, OPUS_SET_BITRATE(bitrate));
+}
+
+*/
+import "C"
+
+/*
+int CAPTURE_CHANNELS   = 2;
+int CAPTURE_RATE    =    48000;
+int CAPTURE_LATENCY   =  40000;
+int PLAYBACK_CHANNELS =  2;
+int PLAYBACK_RATE   =    48000;
+int PLAYBACK_LATENCY =   40000;
+int OPUS_BITRATE     =   32000;
+int OPUS_VBR         =   1;
+int OPUS_BANDWIDTH   =   2;
+int bridge_encoder_set_bitrate(OpusEncoder *e, opus_int32 bitrate)
+{
+	opus_encoder_ctl(e, OPUS_SET_SIGNAL(OPUS_AUTO));
+  	opus_encoder_ctl(e, OPUS_SET_BANDWIDTH(BANDWIDTH));
+	opus_encoder_ctl(e, OPUS_SET_VBR(VBR));
+
+    opus_encoder_ctl(e, OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE));
+
+    opus_encoder_ctl(e, OPUS_SET_BITRATE(OPUS_AUTO));
+    opus_encoder_ctl(e, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND));
+
+    opus_encoder_ctl(e, OPUS_SET_VBR(1));
+
+    opus_encoder_ctl(e, OPUS_SET_VBR_CONSTRAINT(0));
+
+    opus_encoder_ctl(e, OPUS_SET_COMPLEXITY(5));
+
+    opus_encoder_ctl(e, OPUS_SET_FORCE_CHANNELS(CAPTURE_CHANNELS));
+
+    opus_encoder_ctl(e, OPUS_SET_APPLICATION(OPUS_APPLICATION_VOIP));
+
+    opus_encoder_ctl(e, OPUS_SET_INBAND_FEC(1));
+    opus_encoder_ctl(e, OPUS_SET_EXPERT_FRAME_DURATION(OPUS_FRAMESIZE_20_MS));
+	return opus_encoder_ctl(e, OPUS_SET_BITRATE(bitrate));
+}
+
+*/
+type Encoder struct {
+	engine   *C.OpusEncoder
+	channels int
+}
+
+var errEncUninitialized = fmt.Errorf("opus encoder uninitialized")
+
+func NewEncoder(sample_rate, bit_rate int, channels int) (*Encoder, error) {
+	var cerror C.int
+
+	if sample_rate == 0 {
+		return nil, fmt.Errorf("opus: inProp.SampleRate is required")
+	}
+
+	if bit_rate == 0 {
+		bit_rate = 32000
+	}
+	// engine := C.opus_encoder_create(
+	// 	C.opus_int32(p.SampleRate),
+	// 	C.int(channels),
+	// 	C.OPUS_APPLICATION_VOIP,
+	// 	&cerror,
+	// )
+	engine := C.opus_encoder_create(
+		C.opus_int32(sample_rate),
+		C.int(channels),
+		C.OPUS_APPLICATION_VOIP,
+		&cerror,
+	)
+	if cerror != C.OPUS_OK {
+		return nil, errors.New("failed to create encoder engine")
+	}
+	e := Encoder{
+		engine:   engine,
+		channels: channels,
+	}
+
+	err := e.SetBitRate(bit_rate)
+	if err != nil {
+		e.Close()
+		return nil, err
+	}
+	return &e, nil
+}
+
+func (e *Encoder) ReadEncode(pcm []int16, opus []byte) (int, error) {
+
+	encoded := make([]byte, 1024)
+	var n C.opus_int32
+	if e.engine == nil {
+		return 0, errEncUninitialized
+	}
+	if len(pcm) == 0 {
+		return 0, fmt.Errorf("opus: no data supplied")
+	}
+	if len(opus) == 0 {
+		return 0, fmt.Errorf("opus: no target buffer")
+	}
+	// libopus talks about samples as 1 sample containing multiple channels. So
+	// e.g. 20 samples of 2-channel data is actually 40 raw data points.
+	if len(pcm)%e.channels != 0 {
+		return 0, fmt.Errorf("opus: input buffer length must be multiple of channels")
+	}
+	samples := len(pcm) / e.channels
+	n = C.opus_encode(
+		e.engine,
+		(*C.opus_int16)(&pcm[0]),
+		C.int(samples),
+		(*C.uchar)(&encoded[0]),
+		C.opus_int32(cap(encoded)),
+	)
+	opus = encoded[:n:n]
+	return int(n), nil
+}
+
+func (e *Encoder) SetBitRate(bitRate int) error {
+	cerror := C.bridge_encoder_set_bitrate(
+		e.engine,
+		C.int(bitRate),
+	)
+	if cerror != C.OPUS_OK {
+		return fmt.Errorf("failed to set encoder's bitrate to %d", bitRate)
+	}
+
+	return nil
+}
+
+func (e *Encoder) ForceKeyFrame() error {
+	panic("ForceKeyFrame is not implemented")
+}
+
+func (e *Encoder) Close() error {
+	if e.engine == nil {
+		return nil
+	}
+	C.opus_encoder_destroy(e.engine)
+	e.engine = nil
+	return nil
+}

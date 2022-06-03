@@ -17,7 +17,9 @@ import (
 	flvtag "github.com/yutopp/go-flv/tag"
 	"github.com/yutopp/go-rtmp"
 	rtmpmsg "github.com/yutopp/go-rtmp/message"
-	opus "gopkg.in/hraban/opus.v2"
+
+	// opus "gopkg.in/hraban/opus.v2"
+	opus "github.com/sean-der/rtmp-to-webrtc/opus"
 )
 
 func startRTMPServer(peerConnection *webrtc.PeerConnection, videoTrack, audioTrack *webrtc.TrackLocalStaticSample) {
@@ -85,6 +87,7 @@ func (h *Handler) OnPublish(timestamp uint32, cmd *rtmpmsg.NetStreamPublish) err
 	}
 	return nil
 }
+
 func (h *Handler) SetOpusCtl() {
 	h.audioEncoder.SetMaxBandwidth(opus.Bandwidth(2))
 	h.audioEncoder.SetComplexity(9)
@@ -94,6 +97,7 @@ func (h *Handler) SetOpusCtl() {
 func (h *Handler) initAudio(clockRate uint32) error {
 
 	encoder, err := opus.NewEncoder(48000, 2, opus.AppAudio)
+	// encoder, err := opus.NewEncoder(48000, -1000, 2)
 	if err != nil {
 		println(err.Error())
 		return err
