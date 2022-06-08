@@ -16,7 +16,7 @@ Modify from source [mediadevices/pkg/codec/opus at master · pion/mediadevices (
 
 Opus lib ref  [xiph/opus: Modern audio compression for the internet. (github.com)](https://github.com/xiph/opus)
 
-Opus Lib : static build(please add your lib to path ./opus name like :libopus-linux-x64.a), pkgconfig dynamic
+Opus Lib : static build(please add your lib to path ./opus/lib name like :libopus-linux-x64.a), pkgconfig dynamic
 
     please build your lib or install your opus lib dev env
 
