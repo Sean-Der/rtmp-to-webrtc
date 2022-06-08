@@ -70,7 +70,7 @@ func (h *Handler) OnServe(conn *rtmp.Conn) {
 
 func (h *Handler) OnConnect(timestamp uint32, cmd *rtmpmsg.NetConnectionConnect) error {
 	log.Printf("OnConnect: %#v", cmd)
-	h.audioClockRate = 4800
+	h.audioClockRate = 48000
 	return nil
 }
 
@@ -97,7 +97,6 @@ func (h *Handler) SetOpusCtl() {
 func (h *Handler) initAudio(clockRate uint32) error {
 
 	encoder, err := opus.NewEncoder(48000, 2, opus.AppAudio)
-	// encoder, err := opus.NewEncoder(48000, -1000, 2)
 	if err != nil {
 		println(err.Error())
 		return err
@@ -176,22 +175,6 @@ func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 	}
 
 	return nil
-}
-func (h *Handler) OnAudioPCMA(timestamp uint32, payload io.Reader) error {
-	var audio flvtag.AudioData
-	if err := flvtag.DecodeAudioData(payload, &audio); err != nil {
-		return err
-	}
-
-	data := new(bytes.Buffer)
-	if _, err := io.Copy(data, audio.Data); err != nil {
-		return err
-	}
-
-	return h.audioTrack.WriteSample(media.Sample{
-		Data:     data.Bytes(),
-		Duration: 128 * time.Millisecond,
-	})
 }
 
 const headerLengthField = 4
